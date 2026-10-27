@@ -39,23 +39,25 @@ public_users.get("/isbn/:isbn", (req, res) => {
 
 // Get book details based on author
 public_users.get("/author/:author", (req, res) => {
-  const author = req.params.author.toLowerCase();
-  const matches = Object.values(books).filter(
-    (book) => book.author.toLowerCase() === author
-  );
-
-  return res.json(matches);
-});
+    const author = req.params.author.toLowerCase();
+  
+    const matches = Object.entries(books)
+      .filter(([, book]) => book.author.toLowerCase() === author)
+      .map(([isbn, book]) => ({ isbn, ...book }));
+  
+    return res.json(matches);
+  });
 
 // Get all books based on title
 public_users.get("/title/:title", (req, res) => {
-  const title = req.params.title.toLowerCase();
-  const matches = Object.values(books).filter(
-    (book) => book.title.toLowerCase().includes(title)
-  );
-
-  return res.json(matches);
-});
+    const title = req.params.title.toLowerCase();
+  
+    const matches = Object.entries(books)
+      .filter(([, book]) => book.title.toLowerCase().includes(title))
+      .map(([isbn, book]) => ({ isbn, ...book }));
+  
+    return res.json(matches);
+  });
 
 // Get book reviews
 public_users.get("/review/:isbn", (req, res) => {

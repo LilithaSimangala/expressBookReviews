@@ -2,44 +2,113 @@ const axios = require("axios");
 
 const API_URL = "http://localhost:5000";
 
-// Async function using a callback to retrieve all books
+function normalizeBooks(data) {
+  if (Array.isArray(data)) return data;
+
+  return Object.entries(data || {}).map(([isbn, book]) => ({
+    isbn,
+    ...book,
+  }));
+}
+
+function notFoundError(type, value) {
+  const error = new Error(`${type} not found: ${value}`);
+  error.code = "NOT_FOUND";
+  return error;
+}
+
+// Async function with a callback to retrieve all books
 async function getAllBooks(callback) {
   try {
     const response = await axios.get(API_URL);
-    callback(null, response.data);
+    const books = normalizeBooks(response.data);
+    callback(null, books);
+    return books;
   } catch (error) {
-    callback(error, null);
+    const message = new Error(`Could not retrieve books: ${error.message}`);
+    callback(message, null);
+    throw message;
   }
 }
 
-// Promise-based searches
+// Promise-based ISBN search
 function getBookByISBN(isbn) {
+  const value = String(isbn).trim();
+
+  if (!value) {
+    return Promise.reject(new Error("ISBN is required"));
+  }
+
   return axios
-    .get(`${API_URL}/isbn/${encodeURIComponent(isbn)}`)
-    .then((response) => response.data);
+    .get(`${API_URL}/isbn/${encodeURIComponent(value)}`)
+    .then((response) => {
+      if (!response.data || response.data.message === "Book not found") {
+        throw notFoundError("Book", value);
+      }
+
+      return { isbn: value, ...response.data };
+    })
+    .catch((error) => {
+      if (error.code === "NOT_FOUND") throw error;
+      if (error.response?.status === 404) throw notFoundError("Book", value);
+      throw new Error(`ISBN search failed: ${error.message}`);
+    });
 }
 
+// Promise-based author search with explicit filtering
 function getBooksByAuthor(author) {
+  const value = author.trim();
+
+  if (!value) {
+    return Promise.reject(new Error("Author is required"));
+  }
+
   return axios
-    .get(`${API_URL}/author/${encodeURIComponent(author)}`)
-    .then((response) => response.data);
+    .get(`${API_URL}/author/${encodeURIComponent(value)}`)
+    .then((response) => {
+      const matches = normalizeBooks(response.data).filter(
+        (book) => book.author?.toLowerCase() === value.toLowerCase()
+      );
+
+      if (matches.length === 0) throw notFoundError("Author", value);
+      return matches;
+    })
+    .catch((error) => {
+      if (error.code === "NOT_FOUND") throw error;
+      if (error.response?.status === 404) throw notFoundError("Author", value);
+      throw new Error(`Author search failed: ${error.message}`);
+    });
 }
 
+// Promise-based title search with explicit filtering
 function getBooksByTitle(title) {
+  const value = title.trim();
+
+  if (!value) {
+    return Promise.reject(new Error("Title is required"));
+  }
+
   return axios
-    .get(`${API_URL}/title/${encodeURIComponent(title)}`)
-    .then((response) => response.data);
+    .get(`${API_URL}/title/${encodeURIComponent(value)}`)
+    .then((response) => {
+      const matches = normalizeBooks(response.data).filter(
+        (book) => book.title?.toLowerCase().includes(value.toLowerCase())
+      );
+
+      if (matches.length === 0) throw notFoundError("Title", value);
+      return matches;
+    })
+    .catch((error) => {
+      if (error.code === "NOT_FOUND") throw error;
+      if (error.response?.status === 404) throw notFoundError("Title", value);
+      throw new Error(`Title search failed: ${error.message}`);
+    });
 }
 
-// Run examples when this file is executed directly
 if (require.main === module) {
   getAllBooks((error, books) => {
-    if (error) {
-      console.error("Could not retrieve books:", error.message);
-      return;
-    }
-
-    console.log("All books:", books);
+    if (error) console.error(error.message);
+    else console.log("All books:", books);
   });
 
   getBookByISBN("1")

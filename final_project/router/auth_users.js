@@ -1,8 +1,8 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const books = require("./booksdb.js");
-const regd_users = express.Router();
 
+const regd_users = express.Router();
 const users = [];
 
 const isValid = (username) =>
@@ -13,7 +13,6 @@ const authenticatedUser = (username, password) =>
     (user) => user.username === username && user.password === password
   );
 
-// Only registered users can log in
 regd_users.post("/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -30,7 +29,6 @@ regd_users.post("/login", (req, res) => {
   });
 });
 
-// Add or modify a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
   const book = books[req.params.isbn];
   const { review } = req.body;
@@ -44,29 +42,28 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
   }
 
   book.reviews[req.user.username] = review.trim();
+
   return res.json({
     message: "Review added or updated successfully",
     reviews: book.reviews,
   });
 });
 
-// Delete the logged-in user's review
 regd_users.delete("/auth/review/:isbn", (req, res) => {
-  const book = books[req.params.isbn];
+  const isbn = req.params.isbn;
+  const book = books[isbn];
 
   if (!book) {
     return res.status(404).json({ message: "Book not found" });
   }
 
-  if (!book.reviews[req.user.username]) {
+  if (!Object.prototype.hasOwnProperty.call(book.reviews, req.user.username)) {
     return res.status(404).json({ message: "Your review was not found" });
   }
 
   delete book.reviews[req.user.username];
-  return res.json({
-    message: "Review deleted successfully",
-    reviews: book.reviews,
-  });
+
+  return res.json({ message: `Review for ISBN ${isbn} deleted` });
 });
 
 module.exports.authenticated = regd_users;
